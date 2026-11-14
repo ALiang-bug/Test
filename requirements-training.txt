@@ -1,0 +1,7 @@
+# Separate from the original MAR runtime. Install GPU-matched torch separately.
+# Offline preflight and unit tests require only Python 3.10+.
+transformers>=4.57,<5
+peft>=0.17,<0.19
+accelerate>=1.10,<2
+Pillow>=10
+safetensors>=0.5
