@@ -10,6 +10,8 @@ from pathlib import Path
 from .core import Model,REPORT,validate,fingerprint,input_evidence,DRAFT_TASK,CRITIQUE_TASK
 from .io import load,write,unique,image_path
 
+from .semantic import audit as semantic_audit
+
 CHECKS=('evidence_grounded','no_fabricated_facts','dimension_boundaries','citations_verified','intent_restraint')
 
 
@@ -53,7 +55,8 @@ def check(row):
         if row['report']['factual_verdict']!='insufficient' and len(evidence)<=2:
             warnings.append('Definite factual verdict without external evidence; human must inspect visible/logical support')
     except (ValueError,KeyError,TypeError,AttributeError) as exc:errors.append(str(exc))
-    return {'structural_pass':not errors,'errors':errors,'warnings':warnings,'human_review_required':True}
+    semantic=semantic_audit(row['report']) if not errors else {'semantic_pass':False,'issues':[]}
+    return {'semantic':semantic,'structural_pass':not errors,'errors':errors,'warnings':warnings,'human_review_required':True}
 
 
 class Replay:
@@ -93,7 +96,7 @@ def generate(sample,model,image_root,stage='A',verifier=None):
     row['qc']=check(row)
     if row['qc']['structural_pass']:
         row['verifier_model']=getattr(verifier or model,'model','unknown')
-        row['verifier']=(verifier or model).ask('In a separate review pass check the report against image/text/evidence; no ground-truth label is supplied. Return {"pass":true,"issues":[]}. This pass cannot replace human review.',dict(payload,phase='review',report=row['report'],observation_report=row.get('observation_report'),draft=row.get('draft'),critique=row.get('critique'),changed_claims=row.get('changed_claims'),evidence=evidence),str(path))
+        row['verifier']=(verifier or model).ask('In a separate review pass inspect visible observations versus text-induced assumptions, speculative identity/time/intent, unsupported media provenance, duplication of consistency as fact checking, and final verdict exceeding evidence. Check EACH dimension and the observation report, not just the final label. Treat report claims as hypotheses, not facts. No ground-truth label is supplied. Return {"pass":true,"issues":[]}. This pass cannot replace human review.',dict(payload,phase='review',semantic_flags=row['qc']['semantic'],report=row['report'],observation_report=row.get('observation_report'),draft=row.get('draft'),critique=row.get('critique'),changed_claims=row.get('changed_claims'),evidence=evidence),str(path))
         v=row['verifier']
         if type(v.get('pass')) is not bool or not isinstance(v.get('issues'),list):raise ValueError('Invalid verifier output')
     row['annotation_hash']=annotation_hash(row)
@@ -117,6 +120,8 @@ def apply_reviews(rows,reviews):
                 if any(review.get('checks',{}).get(c) is not True for c in CHECKS):raise ValueError('All human checks required')
                 if row.get('fake_cls') and row['fake_cls']!=row['report']['benchmark_pred'] and not review.get('adjudication'):
                     raise ValueError('Label disagreement needs explicit human adjudication')
+                if not check(row)['semantic']['semantic_pass'] and not review.get('adjudication'):
+                    raise ValueError('Semantic flags need explicit human adjudication')
                 if row.get('verifier',{}).get('pass') is False and not review.get('adjudication'):
                     raise ValueError('Verifier disagreement needs human adjudication')
             row['review_status']=review['decision'];row['human_review']=review

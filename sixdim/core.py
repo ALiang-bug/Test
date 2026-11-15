@@ -24,7 +24,23 @@ emotion_analysis describes rhetoric, not factual truth; intent_analysis describe
 possible effects without asserting private motives; fact_conflict_checking compares
 claims to evidence and keeps missing verification insufficient. A news photograph
 need not show every event mentioned in its caption. Distinguish a contradiction
-from an unverified claim. Self-reported confidence is not evidence."""
+from an unverified claim. Self-reported confidence is not evidence.
+Status applies to the explicit proposition being assessed, not confidence. Ask
+neutral, non-leading questions. Image perception must describe visible objects
+before interpreting them; text cannot prove that a screen shows a past self.
+Consistency assesses internal image-text alignment only, not real-world truth.
+Fact conflict checking must assess independent verification of atomic real-world
+claims, not repeat the consistency question. T0 proves what was asserted, not
+that the assertion is true. I0 can support visible contents, not historical identity,
+time, sound, provenance or actual authorship. State the scope of any factual verdict.
+If fact checking is insufficient, factual_verdict must remain insufficient.
+Possible research/therapy/artistic purposes are hypotheses: intent status must be
+insufficient unless explicit evidence establishes the narrowly stated purpose.
+No visible editing artifacts does not establish unmanipulated provenance: use
+media_status unknown without positive evidence. Visual anomaly may support
+manipulated content but does not identify the editing tool or prove deceptive intent.
+Do not demand headphones to verify hearing: absence of an accessory is not disproof.
+Keep the forced benchmark prediction separate from the evidence-based verdict."""
 REPORT = {"claims": ["atomic claim"], "dimensions": [
     {"dimension": d, "question": "question", "answer": "brief evidence-based answer",
      "status": "supported|refuted|insufficient|not_applicable", "evidence_ids": []}

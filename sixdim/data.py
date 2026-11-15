@@ -17,6 +17,8 @@ def export(records,image_root,stage,split='train'):
             raise ValueError('Missing or stale human review')
         if any(review.get('checks',{}).get(c) is not True for c in CHECKS) or not check(record)['structural_pass']:
             raise ValueError('Annotation has not passed all checks')
+        if not check(record)['semantic']['semantic_pass'] and not review.get('adjudication'):
+            raise ValueError('Unresolved semantic flags require human adjudication')
         if record.get('stage')!=stage or not record.get('event_group_id'):raise ValueError('Stage or event mismatch')
         image=image_path(image_root,record['image_path'])
         import hashlib
