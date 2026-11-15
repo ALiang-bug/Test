@@ -93,7 +93,7 @@ def generate(sample,model,image_root,stage='A',verifier=None):
     row['qc']=check(row)
     if row['qc']['structural_pass']:
         row['verifier_model']=getattr(verifier or model,'model','unknown')
-        row['verifier']=(verifier or model).ask('In a separate review pass check the report against image/text/evidence; no ground-truth label is supplied. Return {"pass":true,"issues":[]}. This pass cannot replace human review.',dict(payload,phase='review',report=row['report'],evidence=evidence),str(path))
+        row['verifier']=(verifier or model).ask('In a separate review pass check the report against image/text/evidence; no ground-truth label is supplied. Return {"pass":true,"issues":[]}. This pass cannot replace human review.',dict(payload,phase='review',report=row['report'],observation_report=row.get('observation_report'),draft=row.get('draft'),critique=row.get('critique'),changed_claims=row.get('changed_claims'),evidence=evidence),str(path))
         v=row['verifier']
         if type(v.get('pass')) is not bool or not isinstance(v.get('issues'),list):raise ValueError('Invalid verifier output')
     row['annotation_hash']=annotation_hash(row)

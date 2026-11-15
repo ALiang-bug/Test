@@ -25,3 +25,9 @@ python -m sixdim.train --help
 
 原 MAR 的 `MAR_framework/`、`reverse_image/` 和原数据处理脚本保留为实验基线，
 与新流程有关，因此未删除。新代码不导入原 MAR 模块。
+
+- [Cloud finetuning and paired benchmark](docs/FINETUNING_CLOUD.md)
+
+```bash
+python -m sixdim.benchmark --help
+```

@@ -16,7 +16,15 @@ AI generation, hostility and emotional language alone do not establish falsehood
 Do not infer invisible identities, dates, locations or actual private intent.
 Use insufficient or not_applicable when needed. Similar cases are analogies,
 not evidence for the current claim. Cite only supplied evidence IDs. Provide
-brief auditable explanations, not invented facts or unverifiable reasoning."""
+brief auditable explanations, not invented facts or unverifiable reasoning.
+Dimension boundaries: image_perception reports visible details, not assumed event
+identity; text_understanding extracts atomic claims and qualifiers;
+consistency_verify requires an explicit conflict, not mere absence from the image;
+emotion_analysis describes rhetoric, not factual truth; intent_analysis describes
+possible effects without asserting private motives; fact_conflict_checking compares
+claims to evidence and keeps missing verification insufficient. A news photograph
+need not show every event mentioned in its caption. Distinguish a contradiction
+from an unverified claim. Self-reported confidence is not evidence."""
 REPORT = {"claims": ["atomic claim"], "dimensions": [
     {"dimension": d, "question": "question", "answer": "brief evidence-based answer",
      "status": "supported|refuted|insufficient|not_applicable", "evidence_ids": []}
@@ -59,6 +67,8 @@ def validate(report, evidence_ids):
         ids = d.get("evidence_ids")
         if not isinstance(ids, list) or any(not isinstance(i, str) or i not in evidence_ids for i in ids):
             raise ValueError("Unknown evidence reference")
+        if d['status'] in ('supported','refuted') and not ids:
+            raise ValueError('Definite dimension judgments require evidence citations')
     if report.get("factual_verdict") not in ("supported", "refuted", "insufficient"):
         raise ValueError("Invalid factual verdict")
     if report.get("media_status") not in ("manipulated", "unmanipulated", "unknown"):

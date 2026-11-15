@@ -57,7 +57,11 @@ def prepare(train,dev,stage,replay=None,seed=42,heldout=None):
         if len(replay)<n:raise ValueError('Not enough distinct Stage A rows for 25% replay')
         mixed+=random.Random(seed).sample(replay,n)
     elif replay:raise ValueError('Replay is only used in Stage B')
-    if heldout:
+    if heldout is not None:
+        if not heldout:raise ValueError('Empty held-out manifest')
+        unique_heldout={x.get('sample_id') for x in heldout}
+        if None in unique_heldout or len(unique_heldout)!=len(heldout) or any(x.get('split')!='test' or not x.get('event_group_id') for x in heldout):
+            raise ValueError('Held-out manifest requires unique test samples with event IDs')
         hids={x['sample_id'] for x in heldout};hgroups={x['event_group_id'] for x in heldout}
         if any(x['sample_id'] in hids or x['event_group_id'] in hgroups for x in mixed+dev):
             raise ValueError('Training/development overlaps frozen held-out manifest')
@@ -139,7 +143,7 @@ def execute(a,train,dev,manifest):
     manifest.update(model=a.model,init_adapter=a.init_adapter,trainable_parameters=sum(p.numel() for p in model.parameters() if p.requires_grad),
                     configuration=vars(a),versions={x:importlib.metadata.version(x) for x in ('torch','transformers','peft','accelerate')})
     (output/'run_manifest.json').write_text(json.dumps(manifest,indent=2),encoding='utf-8')
-    args=TrainingArguments(output_dir=str(output),num_train_epochs=a.epochs,learning_rate=a.learning_rate,
+    args=TrainingArguments(output_dir=str(output),num_train_epochs=a.epochs,max_steps=a.max_steps,learning_rate=a.learning_rate,
         per_device_train_batch_size=a.batch_size,per_device_eval_batch_size=1,gradient_accumulation_steps=a.accumulation,
         bf16=a.precision=='bf16',fp16=a.precision=='fp16',gradient_checkpointing=True,
         gradient_checkpointing_kwargs={'use_reentrant':False},remove_unused_columns=False,
@@ -163,7 +167,9 @@ def main():
     p.add_argument('--batch-size',type=int,default=1);p.add_argument('--accumulation',type=int,default=16)
     p.add_argument('--max-length',type=int,default=8192);p.add_argument('--min-pixels',type=int,default=12544)
     p.add_argument('--max-pixels',type=int,default=1003520);p.add_argument('--precision',choices=['bf16','fp16'],default='bf16')
+    p.add_argument('--max-steps',type=int,default=-1,help='Positive optimizer steps for a smoke run; -1 uses epochs')
     p.add_argument('--execute-training',action='store_true');a=p.parse_args()
+    if a.max_steps==0 or a.max_steps < -1:p.error('--max-steps must be -1 or positive')
     if any(v<=0 for v in (a.rank,a.alpha,a.epochs,a.learning_rate,a.batch_size,a.accumulation,a.max_length,a.min_pixels,a.max_pixels)) or a.min_pixels>a.max_pixels:
         p.error('Training dimensions, rates and budgets must be positive and ordered')
     if a.execute_training and not a.heldout:p.error('Actual training requires --heldout frozen test manifest for leakage audit')
