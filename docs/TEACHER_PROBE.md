@@ -30,3 +30,27 @@ python -m sixdim.probe compare --before outputs/teacher-interface-probe-2.jsonl 
 对比人工关注：可见细节是否仍编造；身份/过去时/声音是否从文字注入图像；
 意图是否保留假设；事实核验是否真正分离；媒体来源是否谨慎；六维修正是否影响标签。
 两条开发样本属于提示词调试材料，不是泛化性能评估，规则命中减少不能单独证明提升。
+
+## V3: 第二次模型调用逐主张、逐维度复核
+
+probe run 现在每条调用两次：先生成报告，再把原图、原文、编号 C1..Cn 的
+原报告主张、六维报告和规则标记发送给复核模型。同一个模型的第二次调用并非
+独立模型共识。复核不接收真假标签，不自动改写原报告。
+要求每个主张精确覆盖、原文引用、六维精确覆盖、证据编号合法和总 verdict 一致。
+复核中的 insufficient 表示无法确认草稿是否有据，不是要求所有事实都确定。
+草稿正确保留未知时，复核可以 pass；存在具体错误时 revise。
+
+保存 evidence_review.review、review_model、review_prompt_hash、report_hash。
+machine_review_pass 仅在规则和复核都通过时为 true，仍然 pending，不能直接导出。
+status=ok 仅表示两次调用及结构验证完成，不代表复核通过。
+复核失败/解析错误保留报告并记录 failed；不自动重试、修复或覆盖。
+compare 在 V2/V3 都有 image_sha256 与 input 时严格核对；权重版本仍需用户保持一致。
+
+```bash
+python -m sixdim.probe run --candidates outputs/pilot-candidates-16-v2.jsonl --before outputs/teacher-interface-probe-2-v2.jsonl --image-root /data/home/202422011133/MMFND/MAR_KDD/dataset/MMFakeBench --output outputs/teacher-interface-probe-2-v3.jsonl --allow-network
+python -m sixdim.probe compare --before outputs/teacher-interface-probe-2-v2.jsonl --after outputs/teacher-interface-probe-2-v3.jsonl --output outputs/teacher-interface-probe-comparison-v3.jsonl
+```
+
+人工重点：图像是否真能支持身份和过去时；事实核验是否逐条针对原文主张，
+而不是将翅膀/角的媒体异常当作原文中的假主张；制作方式是否无依据写成 AI。
+复核仍可能与生成模型共享盲点，不能仅以 overall_pass 判断数据正确。

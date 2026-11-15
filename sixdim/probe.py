@@ -7,6 +7,7 @@ from pathlib import Path
 from .core import Model,DRAFT_TASK,POLICY,validate,input_evidence,fingerprint
 from .io import load,unique,image_path,write
 from .semantic import audit
+from .evidence_review import review_report
 
 
 def main():
@@ -34,7 +35,10 @@ def main():
                         'image_sha256':hashlib.sha256(path.read_bytes()).hexdigest(),'prompt_hash':fingerprint([POLICY,DRAFT_TASK])}
                 try:
                     result['report']=validate(model.ask(DRAFT_TASK,payload,str(path)),{'I0','T0'})
-                    result['semantic']=audit(result['report']);result['status']='ok'
+                    result['semantic']=audit(result['report'])
+                    result['evidence_review']=review_report(model,payload,result['report'],str(path),result['semantic'])
+                    result['status']='ok'
+                    result['machine_review_pass']=result['semantic']['semantic_pass'] and result['evidence_review']['review']['overall_pass']
                 except Exception as exc:result['error']=str(exc)
                 out.write(json.dumps(result,ensure_ascii=False)+'\n');out.flush()
                 print(json.dumps(result,ensure_ascii=False,indent=2),flush=True)
@@ -45,12 +49,14 @@ def main():
         for old in before:
             new=mapping[old['sample_id']]
             if old.get('teacher_model')!=new.get('teacher_model'):raise ValueError('Teacher model differs')
+            for field in ('image_sha256','input'):
+                if field in old and field in new and old[field]!=new[field]:raise ValueError('Probe input changed: '+field)
             entry={'sample_id':old['sample_id'],'before_status':old.get('status'),'after_status':new.get('status'),
-                   'note':'Old probe omitted image/input hashes: same ID/model only; full input equality and correctness require human verification.'}
+                   'note':('Image/text evidence hashes checked; model weights are not independently hashed.' if all(k in old and k in new for k in ('image_sha256','input')) else 'Old probe omitted image/input hashes: same ID/model only; full input equality and correctness require human verification.')}
             for name,row in [('before',old),('after',new)]:
                 try:
                     report=validate(row['report'],{'I0','T0'})
-                    entry[name]={'semantic':audit(report),'report':report}
+                    entry[name]={'semantic':audit(report),'report':report,'evidence_review':row.get('evidence_review'), 'machine_review_pass':row.get('machine_review_pass')}
                 except (KeyError,ValueError,TypeError) as exc:entry[name]={'error':str(exc)}
             result.append(entry)
         write(a.output,result)

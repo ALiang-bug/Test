@@ -40,7 +40,15 @@ No visible editing artifacts does not establish unmanipulated provenance: use
 media_status unknown without positive evidence. Visual anomaly may support
 manipulated content but does not identify the editing tool or prove deceptive intent.
 Do not demand headphones to verify hearing: absence of an accessory is not disproof.
-Keep the forced benchmark prediction separate from the evidence-based verdict."""
+Keep the forced benchmark prediction separate from the evidence-based verdict.
+Extract claims only from explicit original text assertions; do not add claims merely
+because the image has unusual features. Fact checking must address these claims,
+not replace them with biological plausibility or AI provenance questions. In visual
+answers do not identify a display figure as a younger/past self without evidence.
+If an image depicts an impossible feature, state the visible anomaly without naming
+AI tools or production methods. Omitted image details are not contradictions.
+Keep verification questions relevant to the claim; do not require headphones as
+proof of hearing, or guess the content creation tool."""
 REPORT = {"claims": ["atomic claim"], "dimensions": [
     {"dimension": d, "question": "question", "answer": "brief evidence-based answer",
      "status": "supported|refuted|insufficient|not_applicable", "evidence_ids": []}
