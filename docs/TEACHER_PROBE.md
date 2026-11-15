@@ -54,3 +54,24 @@ python -m sixdim.probe compare --before outputs/teacher-interface-probe-2-v2.jso
 人工重点：图像是否真能支持身份和过去时；事实核验是否逐条针对原文主张，
 而不是将翅膀/角的媒体异常当作原文中的假主张；制作方式是否无依据写成 AI。
 复核仍可能与生成模型共享盲点，不能仅以 overall_pass 判断数据正确。
+
+## V4: 来源对应与事实核验分离，精确引用草稿
+
+复核 JSON 的 claim_checks 被两组独立完整检查取代：
+- source_checks：主张是否由原文表达，source_quote 必须来自原文。不能因为事实未知而否定来源对应。
+- fact_checks：verdict 是事实证据的 supported/refuted/insufficient；assessment 是草稿处理是否正确。
+  原文明确表达、事实尚未验证、草稿正确保留未知，可同时为 source pass、fact verdict insufficient、assessment pass。
+
+每项 issue 必须有 draft_path 和非空 draft_quote，引用草稿的具体原话。
+验证器在精确路径检验子串，拒绝伪造引文、错误字段、越界索引；每个 revise 必须有匹配的问题。
+允许路径：dimensions.<维度>.answer/question；claims/机制/表达/核验问题的零起始索引；
+factual_verdict、media_status。实际字段名为 mechanisms/expression_strategies/verification_questions。
+引用存在只证明定位有效，不证明复核批评正确；仍需人工裁决。
+
+```bash
+python -m sixdim.probe run --candidates outputs/pilot-candidates-16-v2.jsonl --before outputs/teacher-interface-probe-2-v3.jsonl --image-root /data/home/202422011133/MMFND/MAR_KDD/dataset/MMFakeBench --output outputs/teacher-interface-probe-2-v4.jsonl --allow-network
+python -m sixdim.probe compare --before outputs/teacher-interface-probe-2-v3.jsonl --after outputs/teacher-interface-probe-2-v4.jsonl --output outputs/teacher-interface-probe-comparison-v4.jsonl
+```
+
+历史 V3 报告原样保留，compare 可展示两种复核结构。只改变第二次复核的 schema 和规则，
+本轮生成提示词保持上一版，便于定位复核改动；禁止覆盖旧文件或将 pending 自动转 approved。

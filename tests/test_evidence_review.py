@@ -11,8 +11,9 @@ from sixdim.evidence_review import review_report,validate_review
 
 
 def review():
-    return {'claim_checks':[{'claim_id':'C1','claim':'A person rides.','source_quote':'A person rides.',
+    return {'source_checks':[{'claim_id':'C1','claim':'A person rides.','source_quote':'A person rides.',
             'assessment':'pass','evidence_ids':['T0'],'reason':'Explicit assertion, not inferred truth.'}],
+            'fact_checks':[{'claim_id':'C1','claim':'A person rides.','verdict':'insufficient','assessment':'pass','evidence_ids':['T0'],'reason':'Unknown factual truth handled correctly.'}],
             'dimension_checks':[{'dimension':d,'assessment':'pass','evidence_ids':['I0','T0'],
                                  'reason':'Draft preserves uncertainty.'} for d in DIMENSIONS],
             'issues':[],'overall_pass':True}
@@ -24,8 +25,8 @@ class EvidenceReviewTests(unittest.TestCase):
         for mutate in ('missing_dimension','duplicate_claim','wrong_claim','unknown_ref','false_pass'):
             value=review()
             if mutate=='missing_dimension':value['dimension_checks'].pop()
-            elif mutate=='duplicate_claim':value['claim_checks']*=2
-            elif mutate=='wrong_claim':value['claim_checks'][0]['claim']='Invented claim'
+            elif mutate=='duplicate_claim':value['source_checks']*=2
+            elif mutate=='wrong_claim':value['source_checks'][0]['claim']='Invented claim'
             elif mutate=='unknown_ref':value['dimension_checks'][0]['evidence_ids']=['invented']
             else:value['dimension_checks'][0]['assessment']='revise'
             with self.subTest(mutate=mutate),self.assertRaises(ValueError):
@@ -51,7 +52,7 @@ class EvidenceReviewTests(unittest.TestCase):
             def ask(self,*args):
                 r=review();r['dimension_checks'][0]['assessment']='revise';r['overall_pass']=False
                 r['issues']=[{'code':'text_induced_identity','dimension':'image_perception',
-                    'claim_ids':['C1'],'evidence_ids':['I0'],'detail':'Identity cannot be established.'}]
+                    'claim_ids':['C1'],'evidence_ids':['I0'],'draft_path':'claims.0','draft_quote':'A person rides.','detail':'Identity cannot be established.'}]
                 return r
         original={'claims':['A person rides.']};before=copy.deepcopy(original)
         result=review_report(Fake(),{'text':'A person rides.','evidence':[{'id':'I0'},{'id':'T0'}]},original,'image',{})
@@ -62,7 +63,7 @@ class EvidenceReviewTests(unittest.TestCase):
             model='fixture'
             def __init__(self,quote):self.quote=quote
             def ask(self,*args):
-                r=review();r['claim_checks'][0]['source_quote']=self.quote;return r
+                r=review();r['source_checks'][0]['source_quote']=self.quote;return r
         for quote in ('invented source',''):
             with self.subTest(quote=quote),self.assertRaises(ValueError):
                 review_report(Fake(quote),{'text':'A person rides.','evidence':[{'id':'I0'},{'id':'T0'}]},
@@ -80,7 +81,7 @@ class EvidenceReviewTests(unittest.TestCase):
             def ask(self,task,payload,image):
                 calls.append(payload)
                 if len(calls)==1:return copy.deepcopy(report)
-                value=review();value['dimension_checks'][0]['assessment']='revise';value['overall_pass']=False
+                value=review();value['dimension_checks'][0]['assessment']='insufficient';value['overall_pass']=False
                 return value
         with tempfile.TemporaryDirectory() as folder:
             root=Path(folder);(root/'image.png').write_bytes(b'fixture')
@@ -99,5 +100,30 @@ class EvidenceReviewTests(unittest.TestCase):
             self.assertFalse(result['machine_review_pass'])
             self.assertEqual(result['review_status'],'pending')
             self.assertEqual(result['report'],report)
+
+    def test_source_pass_and_fact_unknown_can_both_be_valid(self):
+        value=review()
+        result=validate_review(value,['A person rides.'],{'I0','T0'})
+        self.assertEqual(result['source_checks'][0]['assessment'],'pass')
+        self.assertEqual(result['fact_checks'][0]['verdict'],'insufficient')
+        self.assertEqual(result['fact_checks'][0]['assessment'],'pass')
+        self.assertTrue(result['overall_pass'])
+        del value['fact_checks']
+        with self.assertRaises(ValueError):validate_review(value,['A person rides.'],{'I0','T0'})
+
+    def test_issue_quote_must_exist_at_exact_draft_path(self):
+        report={'claims':['A person rides.'],'dimensions':[{'dimension':'image_perception','answer':'A younger version of herself.'}]}
+        value=review();value['overall_pass']=False;value['dimension_checks'][0]['assessment']='revise'
+        value['issues']=[{'code':'unverified_age','dimension':'image_perception','claim_ids':[],
+            'evidence_ids':['I0'],'draft_path':'dimensions.image_perception.answer',
+            'draft_quote':'younger version of herself','detail':'Image alone cannot establish age or identity.'}]
+        self.assertFalse(validate_review(value,report['claims'],{'I0','T0'},report)['overall_pass'])
+        for path,quote in [('dimensions.image_perception.answer','invented quote'),('claims.99','A person'),
+                           ('dimensions.unknown.answer','younger'),('claims.0','younger version of herself')]:
+            changed=copy.deepcopy(value);changed['issues'][0].update(draft_path=path,draft_quote=quote)
+            with self.subTest(path=path,quote=quote),self.assertRaises(ValueError):
+                validate_review(changed,report['claims'],{'I0','T0'},report)
+        value['issues']=[]
+        with self.assertRaises(ValueError):validate_review(value,report['claims'],{'I0','T0'},report)
 
 if __name__=='__main__':unittest.main()
